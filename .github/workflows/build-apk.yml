@@ -1,10 +1,13 @@
 name: Build Android APK
+
 on: [push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Set up JDK 17
@@ -13,18 +16,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Create Android Project Structure
+      - name: Create Clean Android Project Structure
         run: |
           mkdir -p app/src/main/java/com/rampurya/livedetector app/src/main/res
           
-          # AndroidManifest.xml
+          # 1. AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rampurya.livedetector">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.rampurya.livedetector">
+              
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <application android:label="Live Network Detector" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
-                  <activity android:name=".MainActivity" android:exported="true">
+
+              <application
+                  android:label="Live Network Detector"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+                  android:allowBackup="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -34,42 +45,71 @@ jobs:
           </manifest>
           EOF
 
-          # build.gradle (Module: app)
+          # 2. build.gradle (Module: app)
           cat << 'EOF' > app/build.gradle
-          plugins { id 'com.android.application' version '7.4.2' apply false }
-          plugins { id 'com.android.application' }
+          plugins {
+              id 'com.android.application'
+          }
+
           android {
               namespace 'com.rampurya.livedetector'
-              compileSdk 33
+              compileSdk 34
+
               defaultConfig {
                   applicationId "com.rampurya.livedetector"
                   minSdk 21
-                  targetSdk 33
+                  targetSdk 34
                   versionCode 1
                   versionName "1.0"
               }
-              compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
           }
+
           dependencies {
-              implementation 'androidx.core:core-ktx:1.9.0'
+              implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
           }
           EOF
 
-          # settings.gradle
+          # 3. settings.gradle
           echo "include ':app'" > settings.gradle
 
-          # build.gradle (Project level)
+          # 4. Root build.gradle
           cat << 'EOF' > build.gradle
           buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' }
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.1'
+              }
           }
-          allprojects { repositories { google(); mavenCentral() } }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           EOF
 
-      - name: Add MainActivity.kt
-        run: |
+          # 5. gradle/wrapper/gradle-wrapper.properties
+          mkdir -p gradle/wrapper
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          # 6. Add MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/rampurya/livedetector/MainActivity.kt
           package com.rampurya.livedetector
 
@@ -106,7 +146,7 @@ jobs:
                       setTextColor(0xFFFFFFFF.toInt())
                   }
                   statusText = TextView(this).apply {
-                      text = "Scanning real subnet..."
+                      text = "Scanning active subnet..."
                       textSize = 13f
                       setTextColor(0xFF94A3B8.toInt())
                       setPadding(0, 10, 0, 20)
@@ -162,7 +202,10 @@ jobs:
           }
           EOF
 
-      - name: Build Debug APK
+      - name: Grant Execute Permission for Gradlew
+        run: gradle wrapper
+
+      - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug
 
       - name: Upload APK Artifact
